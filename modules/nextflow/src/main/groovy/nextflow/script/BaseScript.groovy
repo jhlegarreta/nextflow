@@ -39,11 +39,6 @@ abstract class BaseScript extends Script {
 
     private boolean module
 
-    /**
-     * The list of process defined in the pipeline script
-     */
-    private List<String> processNames
-
     @Lazy InputStream stdin = { System.in }()
 
     /** only for testing purpose */
@@ -58,18 +53,6 @@ abstract class BaseScript extends Script {
     ScriptBinding getBinding() {
         (ScriptBinding)super.getBinding()
     }
-
-
-    /**
-     * This method is get invoked by the DSL parser
-     * @param processNames
-     */
-    protected void init( List<String> processNames ) {
-        this.processNames = processNames
-    }
-
-    @PackageScope
-    List<String> getProcessNames() { processNames }
 
     /**
      * Holds the configuration object which will used to execution the user tasks

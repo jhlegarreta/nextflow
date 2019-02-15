@@ -86,6 +86,11 @@ class ScriptBinding extends Binding {
     }
 
     @PackageScope List<ProcessDef> getDefinedProcesses() { definedProcesses }
+    
+    ScriptBinding(Session session) {
+        this()
+        this.session = session
+    }
 
     ScriptBinding setSession(Session session ) {
         this.session = session

@@ -31,7 +31,7 @@ import nextflow.script.TokenVar
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassCodeVisitorSupport
 import org.codehaus.groovy.ast.ClassNode
-import org.codehaus.groovy.ast.ConstructorNode
+import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.VariableScope
 import org.codehaus.groovy.ast.expr.ArgumentListExpression
@@ -42,7 +42,6 @@ import org.codehaus.groovy.ast.expr.ConstructorCallExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.ast.expr.GStringExpression
-import org.codehaus.groovy.ast.expr.ListExpression
 import org.codehaus.groovy.ast.expr.MapExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.PropertyExpression
@@ -95,58 +94,34 @@ class NextflowDSLImpl implements ASTTransformation {
 
         private Set<String> processNames = []
 
+        private Set<String> workflowNames = []
+
+        private Set<String> functionNames = []
+
         protected SourceUnit getSourceUnit() { unit }
 
         DslCodeVisitor(SourceUnit unit) {
             this.unit = unit
         }
 
-        /**
-         * Creates a statement that invokes the {@link nextflow.script.BaseScript#init(java.util.List)} method
-         * used to initialize the script with metadata collected during script parsing
-         * @return The method invocation statement
-         */
-        protected Statement invokeBaseScriptInit() {
-            final names = new ListExpression()
-            processNames.each { names.addExpression(new ConstantExpression(it.toString())) }
-
-            // the method list argument
-            final args = new ArgumentListExpression()
-            args.addExpression(names)
-
-            final call = new MethodCallExpression(new VariableExpression('this'), 'init', args)
-            final stm = new ExpressionStatement(call)
-            return stm
-        }
-
-        /**
-         * Add to constructor a method call to inject parsed metadata
-         * @param node
-         */
-        protected void injectMetadata(ClassNode node) {
-            for( ConstructorNode constructor : node.getDeclaredConstructors() ) {
-                def code = constructor.getCode()
-                if( code instanceof BlockStatement ) {
-                    code.addStatement( invokeBaseScriptInit() )
-                }
-                else if( code instanceof ExpressionStatement ) {
-                    def expr = code
-                    def block = new BlockStatement()
-                    block.addStatement(expr)
-                    block.addStatement( invokeBaseScriptInit() )
-                    constructor.setCode(block)
-                }
-                else
-                    throw new IllegalStateException("Invalid constructor expression: $code")
-            }
-        }
 
         @Override
         protected void visitObjectInitializerStatements(ClassNode node) {
             if( node.getSuperClass().getName() == BaseScript.getName() ) {
-                injectMetadata(node)
+                def meta = new ScriptMeta(
+                            processNames: processNames,
+                            workflowNames: workflowNames,
+                            functionNames: functionNames)
+                ScriptMeta.put(node.getName(), meta)
             }
             super.visitObjectInitializerStatements(node)
+        }
+
+        @Override
+        void visitMethod(MethodNode node) {
+            if( node.public && !node.static && !node.synthetic && !node.metaDataMap?.'org.codehaus.groovy.ast.MethodNode.isScriptBody')
+                functionNames.add(node.name)
+            super.visitMethod(node)
         }
 
         @Override
