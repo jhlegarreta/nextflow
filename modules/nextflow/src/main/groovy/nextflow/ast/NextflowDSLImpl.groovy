@@ -52,6 +52,7 @@ import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.ast.stmt.Statement
+import org.codehaus.groovy.ast.tools.GeneralUtils
 import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.syntax.SyntaxException
@@ -127,17 +128,17 @@ class NextflowDSLImpl implements ASTTransformation {
         @Override
         void visitMethodCallExpression(MethodCallExpression methodCall) {
             // pre-condition to be verified to apply the transformation
-            Boolean preCondition = methodCall.objectExpression?.getText() == 'this'
+            final preCondition = methodCall.objectExpression?.getText() == 'this'
+            final methodName = methodCall.getMethodAsString()
 
             /*
              * intercept the *process* method in order to transform the script closure
              */
-            if( preCondition &&  methodCall.getMethodAsString() == 'process' ) {
+            if( methodName == 'process' && preCondition ) {
 
                 // clear block label
                 currentLabel = null
-                // keep track of 'process' method (it may be removed)
-                currentTaskName = methodCall.getMethodAsString()
+                currentTaskName = methodName
                 try {
                     convertProcessDef(methodCall,sourceUnit)
                     super.visitMethodCallExpression(methodCall)
@@ -146,13 +147,94 @@ class NextflowDSLImpl implements ASTTransformation {
                     currentTaskName = null
                 }
             }
-
+            else if( methodName == 'workflow' && preCondition ) {
+                convertWorkflowDef(methodCall,sourceUnit)
+                super.visitMethodCallExpression(methodCall)
+            }
             // just apply the default behavior
             else {
                 super.visitMethodCallExpression(methodCall)
             }
 
         }
+
+        /*
+         * this method transforms the DSL definition
+         *
+         *   workflow foo (ch1, ch2) {
+         *     code
+         *   }
+         *
+         * into a method invocation as
+         *
+         *   workflow('foo', ['ch1':ch1, 'ch2':ch2], { -> code })
+         *
+         */
+        protected void convertWorkflowDef(MethodCallExpression methodCall, SourceUnit unit) {
+            log.trace "Convert 'workflow' ${methodCall.arguments}"
+
+            assert methodCall.arguments instanceof ArgumentListExpression
+            def list = (methodCall.arguments as ArgumentListExpression).getExpressions()
+
+            // extract the first argument which has to be a method-call expression
+            // the name of this method represent the *workflow* name
+            if( list.size() != 1 || !list[0].class.isAssignableFrom(MethodCallExpression) ) {
+                log.debug "Missing name in workflow definition at line: ${methodCall.lineNumber}"
+                unit.addError( new SyntaxException("Workflow definition syntax error -- A string identifier must be provided after the `workflow` keyword", methodCall.lineNumber, methodCall.columnNumber+8))
+                return
+            }
+
+            def nested = list[0] as MethodCallExpression
+            def name = nested.getMethodAsString()
+            // check the process name is not defined yet
+            if( isNameDuplicate(name) ) {
+                unit.addError( new SyntaxException("Identifier `$name` is already used by another definition", methodCall.lineNumber, methodCall.columnNumber+8) )
+                return
+            }
+            workflowNames.add(name)
+
+            // the nested method arguments are the arguments to be passed
+            // to the process definition, plus adding the process *name*
+            // as an extra item in the arguments list
+            def args = (ArgumentListExpression)nested.getArguments()
+            log.trace "Workflow name: $name with args: $args"
+
+            // make sure to add the 'name' after the map item
+            // (which represent the named parameter attributes)
+            def newArgs = new ArgumentListExpression()
+            newArgs.addExpression( GeneralUtils.constX(name) )
+
+            if(!args || !(args[args.size()-1] instanceof ClosureExpression)) {
+                syntaxError(methodCall, "Invalid workflow definition -- Missing definition block")
+                return
+            }
+            def body = (ClosureExpression)args[args.size()-1]
+
+            def inputs = new MapExpression()
+            for( int i=0; i<args.size()-1; i++) {
+                def expr = args.getExpression(i)
+                if( expr instanceof VariableExpression ) {
+                    def varX = expr as VariableExpression
+                    inputs.addMapEntryExpression( GeneralUtils.constX(varX.name), expr )
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected input expression: $expr")
+                }
+            }
+            newArgs.addExpression(body)
+            if( inputs.getMapEntryExpressions().size() )
+                newArgs.addExpression(inputs)
+
+            // set the new list as the new arguments
+            methodCall.setArguments( newArgs )
+        }
+
+        protected void syntaxError(ASTNode node, String message) {
+            int line = node.lineNumber
+            int coln = node.columnNumber
+            unit.addError( new SyntaxException(message,line,coln))
+        }
+
 
         /**
          * Transform a DSL `process` definition into a proper method invocation
@@ -803,6 +885,10 @@ class NextflowDSLImpl implements ASTTransformation {
             return false
         }
 
+        protected isNameDuplicate(String name) {
+            name in functionNames || name in workflowNames || name in processNames
+        }
+
         /**
          * This method handle the process definition, so that it transform the user entered syntax
          *    process myName ( named: args, ..  ) { code .. }
@@ -814,7 +900,7 @@ class NextflowDSLImpl implements ASTTransformation {
          * @param unit
          */
         protected void convertProcessDef( MethodCallExpression methodCall, SourceUnit unit ) {
-            log.trace "Converts 'process' ${methodCall.arguments} "
+            log.trace "Converts 'process' ${methodCall.arguments}"
 
             assert methodCall.arguments instanceof ArgumentListExpression
             def list = (methodCall.arguments as ArgumentListExpression).getExpressions()
@@ -823,17 +909,18 @@ class NextflowDSLImpl implements ASTTransformation {
             // the name of this method represent the *process* name
             if( list.size() != 1 || !list[0].class.isAssignableFrom(MethodCallExpression) ) {
                 log.debug "Missing name in process definition at line: ${methodCall.lineNumber}"
-                unit.addError( new SyntaxException("Process definition syntax error -- You must provide a string identifier after the `process` keyword", methodCall.lineNumber, methodCall.columnNumber+7))
+                unit.addError( new SyntaxException("Process definition syntax error -- A string identifier must be provided after the `process` keyword", methodCall.lineNumber, methodCall.columnNumber+7))
                 return
             }
 
             def nested = list[0] as MethodCallExpression
             def name = nested.getMethodAsString()
             // check the process name is not defined yet
-            if( !processNames.add(name) ) {
-                unit.addError( new SyntaxException("Process `$name` is already defined", methodCall.lineNumber, methodCall.columnNumber+8) )
+            if( isNameDuplicate(name) ) {
+                unit.addError( new SyntaxException("Identifier `$name` is already used by another definition", methodCall.lineNumber, methodCall.columnNumber+8) )
                 return
             }
+            processNames.add(name)
 
             // the nested method arguments are the arguments to be passed
             // to the process definition, plus adding the process *name*

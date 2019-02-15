@@ -113,6 +113,14 @@ abstract class BaseScript extends Script {
         }
     }
 
+    protected workflow(String name, Closure body) {
+        println "workflow > $name"
+    }
+
+    protected workflow(String name, Closure body, Map inputs) {
+        println "workflow > $name inputs=$inputs"
+    }
+
     protected void require(path) {
         require(Collections.emptyMap(), path)
     }

@@ -100,36 +100,7 @@ class BaseScriptTest extends Specification {
         result.val == 'echo sample=world pairId=x reads=/some/file'
     }
 
-    def 'should define and invoke as an operator' () {
-        given:
-        def folder = TestHelper.createInMemTempDir()
-        def MODULE = folder.resolve('module.nf')
-        def SCRIPT = folder.resolve('main.nf')
-
-        MODULE.text = '''
-        process foo {
-          input: val sample
-          output: stdout() 
-          script:
-          /echo Hello $sample/
-        }
-        '''
-
-        SCRIPT.text = """
-        require 'module.nf'
-
-        Channel.from('world').foo()
-        """
-
-        when:
-        def runner = new TestScriptRunner([process:[executor:'nope']])
-        def result = runner.setScript(SCRIPT).execute()
-        then:
-        noExceptionThrown()
-        result instanceof DataflowReadChannel
-        result.val == 'echo Hello world'
-
-    }
+    
 
     def 'should compose processes' () {
 
