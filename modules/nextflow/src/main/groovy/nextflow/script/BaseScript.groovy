@@ -66,6 +66,8 @@ abstract class BaseScript extends Script {
     @PackageScope
     TaskProcessor getTaskProcessor() { taskProcessor }
 
+    private ScriptMeta meta() { ScriptMeta.get(this) }
+
     /**
      * Enable disable task 'echo' configuration property
      * @param value
@@ -94,7 +96,7 @@ abstract class BaseScript extends Script {
 
         if( module ) {
             def proc = processFactory.defineProcess(name, body)
-            ScriptMeta.get(this).setProcessDef(proc)
+            meta().setProcessDef(proc)
         }
         else {
             // legacy process definition an execution
@@ -103,8 +105,12 @@ abstract class BaseScript extends Script {
         }
     }
 
-    protected workflow(String name, TaskBody body, List<String> declaredInputs = Collections.emptyList()) {
-        ScriptMeta.get(this).setWorkflowDef(new WorkflowDef(name,body,declaredInputs))
+    protected workflow(TaskBody body) {
+        meta().setWorkflowDef(new WorkflowDef(body))
+    }
+
+    protected workflow(TaskBody body, String name, List<String> declaredInputs = Collections.emptyList()) {
+        meta().setWorkflowDef(new WorkflowDef(body,name,declaredInputs))
     }
 
     protected void require(path) {
@@ -123,12 +129,11 @@ abstract class BaseScript extends Script {
     }
 
     private Object invokeFromModule(String name, Object args) {
-        def meta = ScriptMeta.get(this)
-        def process = meta.getProcessDef(name)
+        def process = meta().getProcessDef(name)
         if( process )
             return process.invoke(binding, args)
 
-        def workflow = meta.getWorkflowDef(name)
+        def workflow = meta().getWorkflowDef(name)
         if( workflow )
             return workflow.invoke(binding, args)
 

@@ -69,6 +69,28 @@ class WorkflowDefTest extends Specification {
         meta.getWorkflowDef('empty') .declaredVariables == []
     }
 
+    def 'should define anonymous workflow' () {
+        given:
+        def config = new CompilerConfiguration()
+        config.setScriptBaseClass(TestScript.class.name)
+        config.addCompilationCustomizers( new ASTTransformationCustomizer(NextflowDSL))
+
+        def SCRIPT = '''
+                    
+            workflow {
+              print x
+              print y
+            }
+        '''
+
+        when:
+        def script = (TestScript)new GroovyShell(config).parse(SCRIPT).run()
+        def meta = ScriptMeta.get(script)
+        then:
+        meta.getWorkflowDef(null).getSource().stripIndent() == 'print x\nprint y\n'
+
+    }
+
     def 'should run workflow block' () {
 
 

@@ -101,6 +101,7 @@ class NextflowDSLImpl implements ASTTransformation {
 
         protected SourceUnit getSourceUnit() { unit }
 
+
         DslCodeVisitor(SourceUnit unit) {
             this.unit = unit
         }
@@ -163,6 +164,15 @@ class NextflowDSLImpl implements ASTTransformation {
             assert methodCall.arguments instanceof ArgumentListExpression
             def list = (methodCall.arguments as ArgumentListExpression).getExpressions()
 
+            // anonymous workflow definition
+            if( list.size() == 1 && list[0] instanceof ClosureExpression ) {
+                def newArgs = new ArgumentListExpression()
+                def body = (ClosureExpression)list[0]
+                newArgs.addExpression( makeWorkflowBodyWrapper(body) )
+                methodCall.setArguments( newArgs )
+                return 
+            }
+
             // extract the first argument which has to be a method-call expression
             // the name of this method represent the *workflow* name
             if( list.size() != 1 || !list[0].class.isAssignableFrom(MethodCallExpression) ) {
@@ -171,8 +181,8 @@ class NextflowDSLImpl implements ASTTransformation {
                 return
             }
 
-            def nested = list[0] as MethodCallExpression
-            def name = nested.getMethodAsString()
+            final nested = list[0] as MethodCallExpression
+            final name = nested.getMethodAsString()
             // check the process name is not defined yet
             if( isNameDuplicate(name) ) {
                 unit.addError( new SyntaxException("Identifier `$name` is already used by another definition", methodCall.lineNumber, methodCall.columnNumber+8) )
@@ -190,9 +200,6 @@ class NextflowDSLImpl implements ASTTransformation {
             // (which represent the named parameter attributes)
             def newArgs = new ArgumentListExpression()
 
-            // add the workflow name
-            newArgs.addExpression( GeneralUtils.constX(name) )
-
             // add the workflow body def
             if(!args || !(args[args.size()-1] instanceof ClosureExpression)) {
                 syntaxError(methodCall, "Invalid workflow definition -- Missing definition block")
@@ -200,6 +207,9 @@ class NextflowDSLImpl implements ASTTransformation {
             }
             def body = (ClosureExpression)args[args.size()-1]
             newArgs.addExpression( makeWorkflowBodyWrapper(body) )
+
+            // add the workflow name
+            newArgs.addExpression( GeneralUtils.constX(name) )
 
             // parse and add workflow input defs
             def inputs = new ArrayList<Expression>()

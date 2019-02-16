@@ -21,9 +21,9 @@ class WorkflowDef implements Cloneable {
 
     private output
 
-    WorkflowDef(String name, TaskBody body, List<String> inputs = Collections.emptyList() ) {
-        this.name = name
+    WorkflowDef(TaskBody body, String name=null, List<String> inputs = Collections.emptyList() ) {
         this.body = body
+        this.name = name
         this.declaredInputs = inputs
         this.variableNames = getVarNames0()
     }
