@@ -2,36 +2,20 @@ package nextflow.script
 
 import spock.lang.Specification
 
-import nextflow.Session
 import nextflow.ast.NextflowDSL
-import nextflow.executor.Executor
-import nextflow.executor.ExecutorFactory
-import nextflow.executor.MockExecutor
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
+import test.MockSession
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 class ProcessDefTest extends Specification {
 
-    static class TestExecutorFactory extends ExecutorFactory {
-        @Override
-        protected Class<? extends Executor> getExecutorClass(String executorName) {
-            return MockExecutor
-        }
-
-        @Override
-        protected boolean isTypeSupported(ScriptType type, Object executor) {
-            true
-        }
-    }
-
     def 'should define and invoke process' () {
 
         given:
-        def session = new Session()
-        session.executorFactory = new TestExecutorFactory()
+        def session = new MockSession()
         def binding = new ScriptBinding(session).setModule(true)
         def config = new CompilerConfiguration()
         config.setScriptBaseClass(BaseScript.class.name)

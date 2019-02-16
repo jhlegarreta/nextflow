@@ -128,7 +128,7 @@ abstract class BaseScript extends Script {
         if( process )
             return process.invoke(binding, args)
 
-        def workflow = meta.getWorkflowDef()
+        def workflow = meta.getWorkflowDef(name)
         if( workflow )
             return workflow.invoke(binding, args)
 

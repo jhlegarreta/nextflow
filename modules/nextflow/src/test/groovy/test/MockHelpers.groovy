@@ -1,13 +1,37 @@
-package nextflow.executor
+package test
 
 import java.nio.file.Paths
 
 import groovy.util.logging.Slf4j
+import nextflow.Session
+import nextflow.executor.Executor
+import nextflow.executor.ExecutorFactory
 import nextflow.processor.TaskHandler
 import nextflow.processor.TaskMonitor
 import nextflow.processor.TaskRun
 import nextflow.processor.TaskStatus
 import nextflow.script.ScriptType
+
+class MockSession extends Session {
+
+    MockSession() {
+        super()
+        executorFactory = new MockExecutorFactory()
+    }
+
+}
+
+class MockExecutorFactory extends ExecutorFactory {
+    @Override
+    protected Class<? extends Executor> getExecutorClass(String executorName) {
+        return MockExecutor
+    }
+
+    @Override
+    protected boolean isTypeSupported(ScriptType type, Object executor) {
+        true
+    }
+}
 
 /**
  *

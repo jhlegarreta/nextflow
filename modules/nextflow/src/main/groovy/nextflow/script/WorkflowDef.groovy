@@ -62,9 +62,9 @@ class WorkflowDef implements Cloneable {
     protected Binding createContext(Binding parent) {
 
         def binding = new Binding()
-        for( String name : variableNames ) {
-            binding.setProperty( name, parent.getProperty(name) )
-        }
+//        for( String name : variableNames ) {
+//            binding.setProperty( name, parent.getProperty(name) )
+//        }
 
         return binding
     }
