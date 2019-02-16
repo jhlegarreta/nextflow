@@ -2,9 +2,7 @@ package nextflow.ast
 
 import spock.lang.Specification
 
-import nextflow.Session
 import nextflow.script.BaseScript
-import nextflow.script.ScriptBinding
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
@@ -14,14 +12,9 @@ import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
  */
 class NextflowDSLImplTest extends Specification {
 
-    private BaseScript parse(Binding binding, CompilerConfiguration config, String text) {
-        (BaseScript)new GroovyShell(binding, config).parse(text)
-    }
-
     def 'should fetch method names' () {
 
         given:
-        def binding = new ScriptBinding(Mock(Session))
         def config = new CompilerConfiguration()
         config.setScriptBaseClass(BaseScript.class.name)
         config.addCompilationCustomizers( new ASTTransformationCustomizer(NextflowDSL))
@@ -45,16 +38,13 @@ class NextflowDSLImplTest extends Specification {
 
         '''
         when:
-        def script = parse(binding, config, SCRIPT)
+        new GroovyShell(config).parse(SCRIPT)
         then:
-        ScriptMeta.get(script).workflowNames == [] as Set
-        ScriptMeta.get(script).processNames == ['alpha'] as Set
-        ScriptMeta.get(script).functionNames == ['foo','bar'] as Set
+        noExceptionThrown()
     }
 
-    def 'should not allow duplicate process names' () {
+    def 'should not allow duplicate processes' () {
         given:
-        def binding = new ScriptBinding(Mock(Session))
         def config = new CompilerConfiguration()
         config.setScriptBaseClass(BaseScript.class.name)
         config.addCompilationCustomizers( new ASTTransformationCustomizer(NextflowDSL))
@@ -72,38 +62,37 @@ class NextflowDSLImplTest extends Specification {
         '''
 
         when:
-        parse(binding, config, SCRIPT)
+        new GroovyShell(config).parse(SCRIPT)
         then:
         def err = thrown(MultipleCompilationErrorsException)
         err.message.contains 'Identifier `alpha` is already used by another definition'
     }
 
-    def 'should parse workflow' () {
 
+    def 'should not allow duplicate workflows' () {
         given:
-        def binding = new ScriptBinding(Mock(Session))
         def config = new CompilerConfiguration()
         config.setScriptBaseClass(BaseScript.class.name)
         config.addCompilationCustomizers( new ASTTransformationCustomizer(NextflowDSL))
 
-        def SCRIPT = '''     
-            x=new Object()
-            y=new Object()
-            workflow foo(x, y) {
-              println 'hello'
+        def SCRIPT = '''
+                    
+            workflow alpha {
+              /hello/
             }
+        
+            workflow alpha {
+              /world/
+            }
+
         '''
 
         when:
-        def script = parse(binding, config, SCRIPT)
+        new GroovyShell(config).parse(SCRIPT)
         then:
-        ScriptMeta.get(script).workflowNames == ['foo'] as Set
-
-        when:
-        script.run()
-        then:
-        true
-
+        def err = thrown(MultipleCompilationErrorsException)
+        err.message.contains 'Identifier `alpha` is already used by another definition'
     }
+
 
 }

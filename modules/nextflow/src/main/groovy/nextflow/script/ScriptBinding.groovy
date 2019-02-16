@@ -53,8 +53,6 @@ class ScriptBinding extends Binding {
 
     private Map configEnv = Collections.emptyMap()
 
-    private List<ProcessDef> definedProcesses = new ArrayList<>(20)
-
     /**
      * Creates a new nextflow script binding object
      *
@@ -85,8 +83,6 @@ class ScriptBinding extends Binding {
         vars.params = params
     }
 
-    @PackageScope List<ProcessDef> getDefinedProcesses() { definedProcesses }
-    
     ScriptBinding(Session session) {
         this()
         this.session = session

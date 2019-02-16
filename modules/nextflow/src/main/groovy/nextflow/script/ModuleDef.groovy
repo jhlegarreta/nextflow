@@ -27,7 +27,7 @@ import nextflow.exception.ProcessException
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class ScriptLibrary {
+class ModuleDef {
 
     private BaseScript script
 
@@ -35,9 +35,9 @@ class ScriptLibrary {
 
     private Map<String,ProcessDef> processDefs = new LinkedHashMap<>(50)
 
-    private Map<String,MethodDef> methodDefs = new LinkedHashMap<>(50)
+    private Map<String,FunctionDef> methodDefs = new LinkedHashMap<>(50)
 
-    ScriptLibrary(BaseScript script) {
+    ModuleDef(BaseScript script) {
         this.script = script
         this.context = script.getBinding()
     }
@@ -53,18 +53,11 @@ class ScriptLibrary {
             final binding = new ScriptBinding() .setParams(params)
 
             // the execution of a library file has as side effect the registration of declared processes
-            def parser = new ScriptParser(context.session)
+            new ScriptParser(context.session)
                     .setModule(true)
                     .setBinding(binding)
                     .runScript(path)
 
-            for( MethodDef method : parser.getDefinedMethods() ) {
-                register(method)
-            }
-
-            for( ProcessDef process : parser.getDefinedProcesses() ) {
-                register(process)
-            }
 
         }
         catch( ProcessException e ) {
@@ -101,12 +94,12 @@ class ScriptLibrary {
         processDefs.put(process.name, process)
     }
 
-    void register(MethodDef method) {
+    void register(FunctionDef method) {
         checkName(method)
         methodDefs.put(method.name, method)
     }
 
-    private void checkName(MethodDef method) {
+    private void checkName(FunctionDef method) {
         if( script.getMetaClass().getMetaMethod(method.name, method) )
             throw new IllegalArgumentException("Method name already exists: $method.name")
     }
@@ -143,7 +136,7 @@ class ScriptLibrary {
     }
 
     Object invoke(String name, Object[] args) {
-        final MethodDef method = methodDefs[name]
+        final FunctionDef method = methodDefs[name]
         if( method )
             return method.invoke(args)
 

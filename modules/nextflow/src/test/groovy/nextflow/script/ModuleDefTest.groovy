@@ -11,7 +11,7 @@ import test.TestHelper
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class ProcessLibraryTest extends Specification {
+class ModuleDefTest extends Specification {
 
     def 'should resolve module path' () {
 
@@ -20,7 +20,7 @@ class ProcessLibraryTest extends Specification {
         def context = new ScriptBinding().setScriptPath(PATH)
         def script = Mock(BaseScript)
         script.getBinding() >> context
-        def lib = new ScriptLibrary(script)
+        def lib = new ModuleDef(script)
 
         expect:
         lib.resolveModulePath(MODULE)  == RESOLVED as Path
@@ -43,7 +43,7 @@ class ProcessLibraryTest extends Specification {
         def module = TestHelper.createInMemTempFile('foo.nf')
         def script = Mock(BaseScript)
         script.getBinding() >> context
-        def lib = new ScriptLibrary(script)
+        def lib = new ModuleDef(script)
 
         module.text = '''
         process foo {

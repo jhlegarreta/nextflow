@@ -16,8 +16,7 @@
 
 package nextflow.script
 
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
+
 import java.nio.file.Path
 
 import com.google.common.hash.Hashing
@@ -203,21 +202,5 @@ class ScriptParser {
         return this
     }
 
-    List<MethodDef> getDefinedMethods() {
-        def allMethods = script.getClass().getDeclaredMethods()
-        def result = new ArrayList(allMethods.length)
-        for( Method method : allMethods ) {
-            if( !Modifier.isPublic(method.getModifiers()) ) continue
-            if( Modifier.isStatic(method.getModifiers())) continue
-            if( method.name.startsWith('super$')) continue
-
-            result.add(new MethodDef(method: method, owner: script, scriptPath: scriptPath))
-        }
-        return result
-    }
-
-    List<ProcessDef> getDefinedProcesses() {
-        return binding.getDefinedProcesses()
-    }
 
 }

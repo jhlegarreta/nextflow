@@ -18,7 +18,6 @@ package nextflow.ast
 
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import nextflow.script.BaseScript
 import nextflow.script.TaskBody
 import nextflow.script.TaskClosure
 import nextflow.script.TokenEnvCall
@@ -42,6 +41,7 @@ import org.codehaus.groovy.ast.expr.ConstructorCallExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.ast.expr.GStringExpression
+import org.codehaus.groovy.ast.expr.ListExpression
 import org.codehaus.groovy.ast.expr.MapExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.PropertyExpression
@@ -103,19 +103,6 @@ class NextflowDSLImpl implements ASTTransformation {
 
         DslCodeVisitor(SourceUnit unit) {
             this.unit = unit
-        }
-
-
-        @Override
-        protected void visitObjectInitializerStatements(ClassNode node) {
-            if( node.getSuperClass().getName() == BaseScript.getName() ) {
-                def meta = new ScriptMeta(
-                            processNames: processNames,
-                            workflowNames: workflowNames,
-                            functionNames: functionNames)
-                ScriptMeta.put(node.getName(), meta)
-            }
-            super.visitObjectInitializerStatements(node)
         }
 
         @Override
@@ -202,31 +189,43 @@ class NextflowDSLImpl implements ASTTransformation {
             // make sure to add the 'name' after the map item
             // (which represent the named parameter attributes)
             def newArgs = new ArgumentListExpression()
+
+            // add the workflow name
             newArgs.addExpression( GeneralUtils.constX(name) )
 
+            // add the workflow body def
             if(!args || !(args[args.size()-1] instanceof ClosureExpression)) {
                 syntaxError(methodCall, "Invalid workflow definition -- Missing definition block")
                 return
             }
             def body = (ClosureExpression)args[args.size()-1]
+            newArgs.addExpression( makeWorkflowBodyWrapper(body) )
 
-            def inputs = new MapExpression()
+            // parse and add workflow input defs
+            def inputs = new ArrayList<Expression>()
             for( int i=0; i<args.size()-1; i++) {
                 def expr = args.getExpression(i)
                 if( expr instanceof VariableExpression ) {
                     def varX = expr as VariableExpression
-                    inputs.addMapEntryExpression( GeneralUtils.constX(varX.name), expr )
+                    inputs.add(GeneralUtils.constX(varX.name))
                 }
                 else {
                     throw new IllegalArgumentException("Unexpected input expression: $expr")
                 }
             }
-            newArgs.addExpression(body)
-            if( inputs.getMapEntryExpressions().size() )
-                newArgs.addExpression(inputs)
+            if( inputs.size() )
+                newArgs.addExpression(new ListExpression(inputs))
 
             // set the new list as the new arguments
             methodCall.setArguments( newArgs )
+        }
+
+        protected Expression makeWorkflowBodyWrapper( ClosureExpression closure ) {
+            def buffer = new StringBuilder()
+            def block = (BlockStatement) closure.getCode()
+            for( Statement stm : block.getStatements() )
+                readSource(stm, buffer, unit)
+            makeScriptWrapper(closure, buffer.toString(), 'workflow', unit)
         }
 
         protected void syntaxError(ASTNode node, String message) {

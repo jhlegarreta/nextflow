@@ -35,7 +35,7 @@ abstract class BaseScript extends Script {
 
     private TaskProcessor taskProcessor
 
-    private ScriptLibrary library
+    private ModuleDef library
 
     private boolean module
 
@@ -44,10 +44,13 @@ abstract class BaseScript extends Script {
     /** only for testing purpose */
     private result
 
-    BaseScript() { }
+    BaseScript() {
+        ScriptMeta.register(this)
+    }
 
     BaseScript(Binding binding) {
         super(binding)
+        ScriptMeta.register(this)
     }
 
     ScriptBinding getBinding() {
@@ -87,7 +90,7 @@ abstract class BaseScript extends Script {
     private void setup() {
         module = binding.module
         session = binding.getSession()
-        library = new ScriptLibrary(this)
+        library = new ModuleDef(this)
         processFactory = session.newProcessFactory(this)
 
         binding.setVariable( 'baseDir', session.baseDir )
@@ -104,7 +107,7 @@ abstract class BaseScript extends Script {
 
         if( module ) {
             def proc = processFactory.defineProcess(name, body)
-            binding.getDefinedProcesses().add(proc)
+            ScriptMeta.get(this).setProcessDef(proc)
         }
         else {
             // create and launch the process
@@ -113,12 +116,8 @@ abstract class BaseScript extends Script {
         }
     }
 
-    protected workflow(String name, Closure body) {
-        println "workflow > $name"
-    }
-
-    protected workflow(String name, Closure body, Map inputs) {
-        println "workflow > $name inputs=$inputs"
+    protected workflow(String name, TaskBody body, List<String> declaredInputs = Collections.emptyList()) {
+        ScriptMeta.get(this).setWorkflowDef(new WorkflowDef(name,body,declaredInputs))
     }
 
     protected void require(path) {
@@ -139,17 +138,9 @@ abstract class BaseScript extends Script {
             super.invokeMethod(name, args)
     }
 
-
-
-    final Object run() {
+    Object run() {
         setup()
-        CurrentScript.push(this, !module, binding, library)
-        try {
-            runScript()
-        }
-        finally {
-            CurrentScript.pop()
-        }
+        runScript()
     }
 
     protected abstract Object runScript()

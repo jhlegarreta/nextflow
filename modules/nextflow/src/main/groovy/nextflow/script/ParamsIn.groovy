@@ -506,7 +506,7 @@ class SetInParam extends BaseInParam {
 
     SetInParam bind( Object... obj ) {
 
-        obj.each { item ->
+        for( def item : obj ) {
 
             if( item instanceof TokenVar )
                 newItem(ValueInParam).bind(item)

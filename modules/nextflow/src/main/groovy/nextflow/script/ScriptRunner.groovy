@@ -23,7 +23,6 @@ import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 import nextflow.Const
 import nextflow.Session
-import nextflow.ast.ScriptMeta
 import nextflow.config.ConfigBuilder
 import nextflow.exception.AbortOperationException
 import nextflow.exception.AbortRunException
