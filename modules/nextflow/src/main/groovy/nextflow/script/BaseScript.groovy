@@ -41,9 +41,6 @@ abstract class BaseScript extends Script {
 
     @Lazy InputStream stdin = { System.in }()
 
-    /** only for testing purpose */
-    private result
-
     BaseScript() {
         ScriptMeta.register(this)
     }
@@ -70,12 +67,6 @@ abstract class BaseScript extends Script {
      */
     @PackageScope
     TaskProcessor getTaskProcessor() { taskProcessor }
-
-    /**
-     * Access to the last *process* result -- only for testing purpose
-     */
-    @PackageScope
-    Object getResult() { result }
 
 
     /**
