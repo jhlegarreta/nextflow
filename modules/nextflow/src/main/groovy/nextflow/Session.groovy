@@ -197,7 +197,7 @@ class Session implements ISession {
 
     private int poolSize
 
-    private List<TraceObserver> observers
+    private List<TraceObserver> observers = Collections.emptyList()
 
     private Closure errorAction
 

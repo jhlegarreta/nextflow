@@ -35,8 +35,6 @@ abstract class BaseScript extends Script {
 
     private TaskProcessor taskProcessor
 
-    private ModuleDef library
-
     private boolean module
 
     @Lazy InputStream stdin = { System.in }()
@@ -68,7 +66,6 @@ abstract class BaseScript extends Script {
     @PackageScope
     TaskProcessor getTaskProcessor() { taskProcessor }
 
-
     /**
      * Enable disable task 'echo' configuration property
      * @param value
@@ -79,9 +76,8 @@ abstract class BaseScript extends Script {
     }
 
     private void setup() {
-        module = binding.module
         session = binding.getSession()
-        library = new ModuleDef(this)
+        module = binding.module
         processFactory = session.newProcessFactory(this)
 
         binding.setVariable( 'baseDir', session.baseDir )
@@ -101,9 +97,9 @@ abstract class BaseScript extends Script {
             ScriptMeta.get(this).setProcessDef(proc)
         }
         else {
-            // create and launch the process
+            // legacy process definition an execution
             taskProcessor = processFactory.createProcessor(name, body)
-            result = taskProcessor.run()
+            taskProcessor.run()
         }
     }
 
@@ -117,16 +113,30 @@ abstract class BaseScript extends Script {
 
     protected void require(Map opts, path) {
         final params = opts.params ? (Map)opts.params : null
-        library.load(path, params)
+        // TODO
+        throw new UnsupportedOperationException("TODO")
     }
-    
 
     @Override
     Object invokeMethod(String name, Object args) {
-        if( library.contains(name) && !module )
-            library.invoke(name, args as Object[])
-        else
-            super.invokeMethod(name, args)
+        module ? invokeFromModule(name,args) : invokeFromMain(name,args)
+    }
+
+    private Object invokeFromModule(String name, Object args) {
+        def meta = ScriptMeta.get(this)
+        def process = meta.getProcessDef(name)
+        if( process )
+            return process.invoke(binding, args)
+
+        def workflow = meta.getWorkflowDef()
+        if( workflow )
+            return workflow.invoke(binding, args)
+
+        return super.invokeMethod(name, args)
+    }
+
+    private Object invokeFromMain(String name, Object args) {
+        super.invokeMethod(name,args)
     }
 
     Object run() {

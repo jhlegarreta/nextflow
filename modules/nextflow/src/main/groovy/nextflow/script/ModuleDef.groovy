@@ -19,14 +19,12 @@ package nextflow.script
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
-import groovy.transform.CompileStatic
 import nextflow.exception.ProcessDuplicateException
 import nextflow.exception.ProcessException
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@CompileStatic
 class ModuleDef {
 
     private BaseScript script
