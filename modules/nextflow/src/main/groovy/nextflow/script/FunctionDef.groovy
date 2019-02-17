@@ -9,7 +9,7 @@ import groovy.transform.CompileStatic
  */
 
 @CompileStatic
-class FunctionDef {
+class FunctionDef implements InvokableDef {
 
     private BaseScript owner
 
@@ -31,7 +31,7 @@ class FunctionDef {
 
     BaseScript getOwner() { owner }
 
-    Object invoke(Object...args) {
+    Object invoke(Object[] args, Binding binding) {
         method.invoke(owner, args)
     }
 }

@@ -6,7 +6,6 @@ import java.nio.file.Path
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -15,6 +14,11 @@ import groovy.transform.PackageScope
 @CompileStatic
 class ScriptMeta {
 
+    static private List<String> INVALID_FUNCTION_NAMES = [
+            'methodMissing',
+            'propertyMissing'
+    ]
+
     static private Map<BaseScript,ScriptMeta> REGISTRY = new HashMap<>(10)
 
     static ScriptMeta get(BaseScript script) {
@@ -22,60 +26,45 @@ class ScriptMeta {
     }
 
     private Class<? extends BaseScript> clazz
-
     private Path scriptPath
-
-    private List<WorkflowDef> definedWorkflows = new ArrayList<>(10)
-
-    private List<ProcessDef> definedProcesses = new ArrayList<>(10)
-
-    private List<FunctionDef> definedFunctions = new ArrayList<>(10)
-
+    private ScriptIncludes includes
+    private List<InvokableDef> definitions = new ArrayList<>(10)
     Path getScriptPath() { scriptPath }
 
-    @PackageScope setScriptPath(Path path ) { scriptPath = path }
-
-    List<WorkflowDef> getDefinedWorkflows() { definedWorkflows }
-
-    List<ProcessDef> getDefinedProcesses() { definedProcesses }
-
-    List<FunctionDef> getDefinedFunctions() { definedFunctions }
-
-    Set<String> getWorkflowNames() {
-        def result = new LinkedHashSet(definedWorkflows.size())
-        for( def work : definedWorkflows )
-            result.add(work.name)
-        return result
+    ScriptMeta(BaseScript script) {
+        this.clazz = script.class
+        for( def entry : definedFunctions0(script) ) {
+            definitions.add(entry)
+        }
     }
 
-    Set<String> getProcessNames() {
-        def result = new LinkedHashSet(definedProcesses.size())
-        for( def proc : definedProcesses )
-            result.add(proc.name)
-        return result
+    @PackageScope
+    void setScriptPath(Path path) {
+        scriptPath = path
     }
 
-    Set<String> getFunctionNames() {
-        def result = new LinkedHashSet(definedFunctions.size())
-        for( def func: definedFunctions )
-            result.add(func.name)
-        return result
+    ScriptIncludes getScriptIncludes() {
+        includes
+    }
+
+    @PackageScope void setScriptIncludes(ScriptIncludes includes) {
+        this.includes = includes
+    }
+
+    List<InvokableDef> getDefinitions() {
+        definitions
     }
 
     Set<String> getAllDefinedNames() {
-        def result = new HashSet(definedWorkflows.size() + definedProcesses.size() + definedFunctions.size())
-        result.addAll( getFunctionNames() )
-        result.addAll( getWorkflowNames() )
-        result.addAll( getProcessNames() )
+        def result = new HashSet(definitions.size())
+        for( def entry : definitions )
+            result.add(entry.name)
         return result
     }
 
     @PackageScope
     static ScriptMeta register(BaseScript script) {
-        def meta = new ScriptMeta(
-                clazz: script.class,
-                definedFunctions: definedFunctions0(script) )
-        
+        def meta = new ScriptMeta(script)
         REGISTRY.put(script, meta)
         return meta
     }
@@ -87,49 +76,105 @@ class ScriptMeta {
             if( !Modifier.isPublic(method.getModifiers()) ) continue
             if( Modifier.isStatic(method.getModifiers())) continue
             if( method.name.startsWith('super$')) continue
+            if( method.name in INVALID_FUNCTION_NAMES ) continue
 
             result.add(new FunctionDef(script, method))
         }
         return result
     }
 
-    ScriptMeta addWorkflowDef(WorkflowDef workflow) {
-        definedWorkflows.add(workflow)
+    ScriptMeta addDefinition(InvokableDef invokable) {
+        definitions.add(invokable)
         return this
+    }
+
+    InvokableDef getDefinition(String name) {
+        definitions.find { it.name == name }
     }
 
     WorkflowDef getWorkflowDef(String name) {
-        for( def work : definedWorkflows ) {
-            if( work.name == name ) return work
-        }
-        return null
-    }
-
-    ScriptMeta addProcessDef(ProcessDef process) {
-        definedProcesses.add(process)
-        return this
-    }
-
-    ProcessDef getProcessDef(String name) {
-        for( def proc : definedProcesses ) {
-            if( proc.name == name ) return proc
-        }
-        return null
-    }
-
-    boolean addFunctionDef(FunctionDef function) {
-        definedFunctions.add(function)
-        return this
-    }
-
-    FunctionDef getFunctionDef(String name) {
-        for( def func : definedFunctions ) {
-            if( func.name == name ) return func
-        }
-        return null
+        (WorkflowDef)definitions.find { it.name == name }
     }
 
     boolean containsDef( String name ) {
-        getProcessDef(name) ?: getWorkflowDef(name) ?: getFunctionDef(name)
+        getDefinition(name) != null
     }
+
+    List<WorkflowDef> getDefinedWorkflows() {
+        def result = new ArrayList(definitions.size())
+        for( def entry : definitions ) {
+            if( entry instanceof WorkflowDef )
+                result.add(entry)
+        }
+        return result
+    }
+
+    List<ProcessDef> getDefinedProcesses() {
+        def result = new ArrayList(definitions.size())
+        for( def entry : definitions ) {
+            if( entry instanceof ProcessDef )
+                result.add(entry)
+        }
+        return result
+    }
+
+    List<FunctionDef> getDefinedFunctions() {
+        def result = new ArrayList(definitions.size())
+        for( def entry : definitions ) {
+            if( entry instanceof FunctionDef )
+                result.add(entry)
+        }
+        return result
+    }
+
+    protected Set<InvokableDef> getIncludedDefinitions(Class type) {
+        if( !includes )
+            return Collections.emptySet()
+
+        def result = new HashSet()
+        for( def entry : includes.getDefinitions() ) {
+            if( type.isAssignableFrom(entry.class))
+                result.add(entry)
+        }
+
+        return result
+    }
+
+    Set<ProcessDef> getProcesses() {
+        def result = new HashSet()
+        result.addAll( getDefinedProcesses() )
+        result.addAll( getIncludedDefinitions(ProcessDef) )
+        return result
+    }
+
+    Set<WorkflowDef> getWorkflows() {
+        def result = new HashSet()
+        result.addAll( getDefinedWorkflows() )
+        result.addAll( getIncludedDefinitions(WorkflowDef) )
+        return result
+    }
+
+    Set<FunctionDef> getFunctions() {
+        def result = new HashSet()
+        result.addAll( getDefinedFunctions() )
+        result.addAll( getIncludedDefinitions(FunctionDef) )
+        return result
+    }
+
+    Set<String> getProcessNames() {
+        final processes = getProcesses()
+        final result = new HashSet(processes.size())
+        for( def entry : processes )
+            result.add(entry.name)
+        return result
+    }
+
+    InvokableDef getInvokable(String name) {
+        def result = definitions.find { it.name == name }
+        if( result )
+            return result
+
+        includes.getDefinitions().find { it.name == name }
+    }
+
 }

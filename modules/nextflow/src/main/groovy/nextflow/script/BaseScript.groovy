@@ -16,10 +16,10 @@
 
 package nextflow.script
 
-
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 import nextflow.Session
+import nextflow.exception.IllegalInvocationException
 import nextflow.processor.TaskProcessor
 /**
  * Any user defined script will extends this class, it provides the base execution context
@@ -29,6 +29,8 @@ import nextflow.processor.TaskProcessor
 @Slf4j
 abstract class BaseScript extends Script {
 
+    private static Object[] EMPTY_ARGS = [] as Object[]
+
     private Session session
 
     private ProcessFactory processFactory
@@ -37,17 +39,17 @@ abstract class BaseScript extends Script {
 
     private boolean module
 
-    private ScriptIncludes includes
+    private ScriptMeta meta
 
     @Lazy InputStream stdin = { System.in }()
 
     BaseScript() {
-        ScriptMeta.register(this)
+        meta = ScriptMeta.register(this)
     }
 
     BaseScript(Binding binding) {
         super(binding)
-        ScriptMeta.register(this)
+        meta = ScriptMeta.register(this)
     }
 
     @Override
@@ -69,8 +71,6 @@ abstract class BaseScript extends Script {
     @PackageScope
     TaskProcessor getTaskProcessor() { taskProcessor }
 
-    private ScriptMeta meta() { ScriptMeta.get(this) }
-
     /**
      * Enable disable task 'echo' configuration property
      * @param value
@@ -83,8 +83,8 @@ abstract class BaseScript extends Script {
     private void setup() {
         module = binding.module
         session = binding.getSession()
-        includes = new ScriptIncludes(this)
         processFactory = session.newProcessFactory(this)
+        meta.scriptIncludes = new ScriptIncludes(this)
 
         binding.setVariable( 'baseDir', session.baseDir )
         binding.setVariable( 'workDir', session.workDir )
@@ -100,7 +100,7 @@ abstract class BaseScript extends Script {
 
         if( module ) {
             def proc = processFactory.defineProcess(name, body)
-            meta().addProcessDef(proc)
+            meta.addDefinition(proc)
         }
         else {
             // legacy process definition an execution
@@ -110,11 +110,15 @@ abstract class BaseScript extends Script {
     }
 
     protected workflow(TaskBody body) {
-        meta().addWorkflowDef(new WorkflowDef(body))
+        if( module )
+            throw new IllegalArgumentException("Anonymous workflow declaration is not allowed in module script")
+        def workflow = new WorkflowDef(body)
+        meta.addDefinition(workflow)
+        workflow.invoke(EMPTY_ARGS, binding)
     }
 
     protected workflow(TaskBody body, String name, List<String> declaredInputs = Collections.emptyList()) {
-        meta().addWorkflowDef(new WorkflowDef(body,name,declaredInputs))
+        meta.addDefinition(new WorkflowDef(body,name,declaredInputs))
     }
 
     protected void require(path) {
@@ -123,28 +127,53 @@ abstract class BaseScript extends Script {
 
     protected void require(Map opts, path) {
         final params = opts.params ? (Map)opts.params : null
-        includes.load(path, params)
+        meta.scriptIncludes.load(path, params)
     }
 
     @Override
     Object invokeMethod(String name, Object args) {
-        module ? invokeFromModule(name,args) : invokeFromMain(name,args)
+        def invokable = meta.getInvokable(name)
+        if( !invokable )
+            return super.invokeMethod(name,args)
+
+        // case 1 - invoke foreign function definition
+        if( invokable instanceof FunctionDef )
+            return invokable.invoke(args)
+
+        final current = WorkflowStack.get().current()
+        if( invokable instanceof WorkflowDef ) {
+            // case 2.b - workflow nested invocation
+            if( current )
+                return invokable.invoke(args, current.context)
+
+            // case 2.a - workflow invocation from main
+            if( !module )
+                return invokable.invoke(args, binding)
+
+            else
+                invokeError(invokable)
+        }
+
+        // case 3 - process invocation from within a workflow
+        if( invokable instanceof ProcessDef ) {
+            if( current )
+                return invokable.invoke(args, current.context)
+            else
+                invokeError(invokable)
+        }
+
+        throw new IllegalArgumentException("Unknown invocation: name=$invokable.name type=${invokable.class.name}")
     }
 
-    private Object invokeFromModule(String name, Object args) {
-        def process = meta().getProcessDef(name)
-        if( process )
-            return process.invoke(binding, args)
-
-        def workflow = meta().getWorkflowDef(name)
-        if( workflow )
-            return workflow.invoke(binding, args)
-
-        return super.invokeMethod(name, args)
-    }
-
-    private Object invokeFromMain(String name, Object args) {
-        super.invokeMethod(name,args)
+    private void invokeError(InvokableDef invokable) {
+        def message
+        if( invokable instanceof WorkflowDef )
+            message = "Workflow $invokable.name cannot be invoked from a module script"
+        else if( invokable instanceof ProcessDef )
+            message = "Process $invokable.name can only be invoked from a workflow context"
+        else
+            message = "Invalid invocation context: $invokable.name"
+        throw new IllegalInvocationException(message)
     }
 
     Object run() {

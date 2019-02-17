@@ -9,7 +9,7 @@ import groovyx.gpars.dataflow.DataflowWriteChannel
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class WorkflowDef implements Cloneable {
+class WorkflowDef implements InvokableDef, Cloneable {
 
     private String name
 
@@ -18,6 +18,11 @@ class WorkflowDef implements Cloneable {
     private List<String> declaredInputs
 
     private Set<String> variableNames
+
+    // -- following attributes are mutable and instance dependant
+    // -- therefore should not be cloned
+
+    private Binding context
 
     private output
 
@@ -34,6 +39,7 @@ class WorkflowDef implements Cloneable {
         return copy
     }
 
+    Binding getContext() { context }
 
     String getName() { name }
 
@@ -59,17 +65,9 @@ class WorkflowDef implements Cloneable {
         return variableNames
     }
 
-    protected Binding createContext(Binding parent) {
-
-        def binding = new Binding()
-//        for( String name : variableNames ) {
-//            binding.setProperty( name, parent.getProperty(name) )
-//        }
-
-        return binding
-    }
 
     protected void collectInputs(Binding context, Object[] args) {
+        println "args=$args  inputs=$declaredInputs"
         if( args.size() != declaredInputs.size() )
             throw new IllegalArgumentException("Workflow `$name` declares ${declaredInputs.size()} input channels but ${args.size()} were specified")
 
@@ -106,20 +104,28 @@ class WorkflowDef implements Cloneable {
         return new ProcessOutputArray(result)
     }
 
-    Object invoke(Binding scope, Object... args) {
+    Object invoke(Object[] args, Binding scope) {
         // use this instance an workflow template, therefore clone it
         final workflow = this.clone()
         // workflow execution
-        final result = workflow.run0(scope, args)
-        // register this workflow invocation in the current context
-        // so that it can be accessed in the outer execution scope
-        scope.setProperty(name, workflow)
-        return result
+        WorkflowStack.get().push(workflow)
+        try {
+            final result = workflow.run0(args)
+            // register this workflow invocation in the current scope
+            // so that it can be accessed in the outer execution scope
+            if( name )
+                scope.setProperty(name, workflow)
+            return result
+        }
+        finally {
+            WorkflowStack.get().pop()
+        }
+
     }
 
-    protected Object run0(Binding scope, Object[] args) {
+    protected Object run0(Object[] args) {
         // setup the execution context
-        final context = createContext(scope)
+        context = new Binding()
         // setup the workflow inputs
         collectInputs(context, args)
         // invoke the workflow execution

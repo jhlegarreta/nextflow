@@ -26,7 +26,7 @@ import nextflow.Session
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class ProcessDef implements Cloneable {
+class ProcessDef implements InvokableDef, Cloneable {
 
     private BaseScript owner
 
@@ -65,7 +65,7 @@ class ProcessDef implements Cloneable {
 
     def getOutput() { output }
 
-    Object invoke(Binding scope, Object... args) {
+    Object invoke(Object[] args, Binding scope) {
         // use this instance an workflow template, therefore clone it
         def process = this.clone()
         // invoke the process execution
@@ -77,7 +77,7 @@ class ProcessDef implements Cloneable {
     }
 
 
-    private call0(Object... args) {
+    private call0(Object[] args) {
         if( args.size()==1 && args[0] instanceof ProcessOutputArray )
             args = args[0] as Object[]
 

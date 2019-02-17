@@ -84,19 +84,19 @@ class ScriptIncludesTest extends Specification {
         ScriptIncludes loader = Spy(ScriptIncludes, constructorArgs:[parent])
 
         when:
-        loader.addInclude(include1)
+        loader.addInclude0(include1)
         then:
-        1 * loader.checkUniqueNames(include1)
+        1 * loader.checkUniqueNames0(include1)
         1 * loader.getMeta(include1) >> meta1
-        1 * loader.nameExists('foo') >> null
+        1 * loader.nameExists0('foo') >> null
         loader.getIncludeScripts().contains(include1)
 
         when:
-        loader.addInclude(include2)
+        loader.addInclude0(include2)
         then:
-        1 * loader.checkUniqueNames(include2)
+        1 * loader.checkUniqueNames0(include2)
         1 * loader.getMeta(include2) >> meta2
-        1 * loader.nameExists('foo') >> meta1
+        1 * loader.nameExists0('foo') >> meta1
         !loader.getIncludeScripts().contains(include2)
         thrown(DuplicateScriptDefinitionException)
 

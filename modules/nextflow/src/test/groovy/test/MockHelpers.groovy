@@ -10,13 +10,27 @@ import nextflow.processor.TaskHandler
 import nextflow.processor.TaskMonitor
 import nextflow.processor.TaskRun
 import nextflow.processor.TaskStatus
+import nextflow.script.ScriptRunner
 import nextflow.script.ScriptType
+
+class MockScriptRunner extends ScriptRunner {
+
+    MockScriptRunner() {
+        super(new MockSession())
+    }
+
+}
 
 class MockSession extends Session {
 
+    @Override
+    Session start() {
+        this.executorFactory = new MockExecutorFactory()
+        return super.start()
+    }
+
     MockSession() {
         super()
-        executorFactory = new MockExecutorFactory()
     }
 
 }

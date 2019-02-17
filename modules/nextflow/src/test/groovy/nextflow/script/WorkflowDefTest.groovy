@@ -5,8 +5,6 @@ import spock.lang.Specification
 import nextflow.ast.NextflowDSL
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
-import test.MockSession
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -78,21 +76,21 @@ class WorkflowDefTest extends Specification {
         def SCRIPT = '''
                     
             workflow {
-              print x
-              print y
+              print 1
+              print 2
             }
         '''
 
         when:
-        def script = (TestScript)new GroovyShell(config).parse(SCRIPT).run()
+        def binding = new ScriptBinding()
+        def script = (TestScript)new GroovyShell(binding, config).parse(SCRIPT).run()
         def meta = ScriptMeta.get(script)
         then:
-        meta.getWorkflowDef(null).getSource().stripIndent() == 'print x\nprint y\n'
+        meta.getWorkflowDef(null).getSource().stripIndent() == 'print 1\nprint 2\n'
 
     }
 
     def 'should run workflow block' () {
-
 
         given:
         def config = new CompilerConfiguration()
@@ -114,8 +112,8 @@ class WorkflowDefTest extends Specification {
         workflow.declaredInputs == ['x']
 
         when:
-        def binding = new Binding()
-        def result = workflow.invoke(binding, 'Hello')
+        def binding = new ScriptBinding()
+        def result = workflow.invoke('Hello', binding)
         then:
         result == 'Hello world'
         binding.alpha.output == result
@@ -123,43 +121,5 @@ class WorkflowDefTest extends Specification {
     }
 
 
-    def 'should compose workflow' () {
-        given:
-        def session = new MockSession()
-        def binding = new ScriptBinding(session).setModule(true)
-        def config = new CompilerConfiguration()
-        config.setScriptBaseClass(BaseScript.class.name)
-        config.addCompilationCustomizers( new ASTTransformationCustomizer(NextflowDSL))
 
-        def SCRIPT = '''
-            
-            process foo {
-              input: val data 
-              output: val result
-              exec:
-                result = "$data mundo"
-            }     
-            
-            process bar {
-                input: val data 
-                output: val result
-                exec: 
-                  result = data.toUpperCase()
-            }   
-            
-            workflow alpha(data) {
-                foo(data)
-                bar(foo.output)
-            }
-            
-            alpha('Hello')
-        '''
-
-        when:
-        def script = (BaseScript)new GroovyShell(binding,config).parse(SCRIPT)
-        def result = script.run()
-        session.await()
-        then:
-        result.val == 'HELLO MUNDO'
-    }
 }

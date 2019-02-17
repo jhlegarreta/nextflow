@@ -226,7 +226,7 @@ class ScriptRunner {
     }
 
     @PackageScope void checkConfig() {
-        final names = ScriptMeta.get(scriptParser.script).processNames
+        final names = ScriptMeta.get(scriptParser.script).getProcessNames()
         session.validateConfig(names)
     }
 

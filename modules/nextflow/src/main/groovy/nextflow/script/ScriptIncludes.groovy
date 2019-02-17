@@ -62,7 +62,7 @@ class ScriptIncludes {
                     .setBinding(binding)
                     .runScript(path)
 
-            addInclude(result.script)
+            addInclude0(result.script)
         }
         catch( ProcessException e ) {
             throw e
@@ -96,28 +96,28 @@ class ScriptIncludes {
         ScriptMeta.get(script)
     }
 
-    protected void addInclude(BaseScript includeScript) {
+    protected void addInclude0(BaseScript includeScript) {
         // check that declared names do not conflict with other includes
-        checkUniqueNames(includeScript)
+        checkUniqueNames0(includeScript)
         allIncludes.add(includeScript)
     }
 
-    protected void checkUniqueNames(BaseScript includeScript) {
+    protected void checkUniqueNames0(BaseScript includeScript) {
         def meta = getMeta(includeScript)
         for( String name : meta.getAllDefinedNames() ) {
-            def found = nameExists(name)
+            def found = nameExists0(name)
             if( found ) {
               def msg = """\
                 Duplicate definition `$name` in the following scripts:
-                - $meta.scriptPath
-                - $found.scriptPath
+                - ${meta.scriptPath.toUriString()}
+                - ${found.scriptPath.toUriString()}
                 """.stripIndent()
               throw new DuplicateScriptDefinitionException(msg)
             }
         }
     }
 
-    protected ScriptMeta nameExists(String name) {
+    protected ScriptMeta nameExists0(String name) {
         for( BaseScript script : allIncludes ) {
             final other = getMeta(script)
             if( other.containsDef(name) ) {
@@ -126,4 +126,14 @@ class ScriptIncludes {
         }
         return null
     }
+
+
+    List<InvokableDef> getDefinitions() {
+        def result = new ArrayList()
+        for( BaseScript script : allIncludes ) {
+            result.addAll( getMeta(script).getDefinitions() )
+        }
+        return result
+    }
+
 }
