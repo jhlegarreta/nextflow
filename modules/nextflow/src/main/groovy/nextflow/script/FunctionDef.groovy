@@ -7,16 +7,27 @@ import groovy.transform.CompileStatic
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+
 @CompileStatic
 class FunctionDef {
 
-    BaseScript owner
+    private BaseScript owner
 
-    Method method
+    private Method method
+
+    private String name
+
+    FunctionDef(BaseScript owner, Method method) {
+        this.owner = owner
+        this.method = method
+        this.name = method.name
+    }
+
+    protected FunctionDef() { }
 
     Method getMethod() { method }
 
-    String getName() { method.name }
+    String getName() { name }
 
     BaseScript getOwner() { owner }
 

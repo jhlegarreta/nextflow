@@ -19,29 +19,35 @@ package nextflow.script
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
-import nextflow.exception.ProcessDuplicateException
+import groovy.transform.CompileStatic
+import nextflow.exception.DuplicateScriptDefinitionException
 import nextflow.exception.ProcessException
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class ModuleDef {
+@CompileStatic
+class ScriptIncludes {
 
     private BaseScript script
 
     private ScriptBinding context
 
-    private Map<String,ProcessDef> processDefs = new LinkedHashMap<>(50)
+    private List<BaseScript> allIncludes = new ArrayList<>(10)
 
-    private Map<String,FunctionDef> methodDefs = new LinkedHashMap<>(50)
-
-    ModuleDef(BaseScript script) {
+    ScriptIncludes(BaseScript script) {
         this.script = script
         this.context = script.getBinding()
     }
 
     String toString() {
-        "${this.class.simpleName}[processes=${processDefs.keySet().join(',')}; methods=${methodDefs.keySet().join(',')}]"
+        "${this.class.simpleName}"
+    }
+
+    List<BaseScript> getIncludeScripts() { allIncludes }
+
+    BaseScript getIncludeScript(int index) {
+        allIncludes[index]
     }
 
     void load( module, Map params ) {
@@ -51,12 +57,12 @@ class ModuleDef {
             final binding = new ScriptBinding() .setParams(params)
 
             // the execution of a library file has as side effect the registration of declared processes
-            new ScriptParser(context.session)
+            def result = new ScriptParser(context.session)
                     .setModule(true)
                     .setBinding(binding)
                     .runScript(path)
 
-
+            addInclude(result.script)
         }
         catch( ProcessException e ) {
             throw e
@@ -86,63 +92,38 @@ class ModuleDef {
         throw new IllegalArgumentException("Cannot resolve module path: ${result.toUriString()}")
     }
 
-
-    void register(ProcessDef process) {
-        checkName(process)
-        processDefs.put(process.name, process)
+    protected ScriptMeta getMeta(BaseScript script) {
+        ScriptMeta.get(script)
     }
 
-    void register(FunctionDef method) {
-        checkName(method)
-        methodDefs.put(method.name, method)
+    protected void addInclude(BaseScript includeScript) {
+        // check that declared names do not conflict with other includes
+        checkUniqueNames(includeScript)
+        allIncludes.add(includeScript)
     }
 
-    private void checkName(FunctionDef method) {
-        if( script.getMetaClass().getMetaMethod(method.name, method) )
-            throw new IllegalArgumentException("Method name already exists: $method.name")
-    }
-
-    private void checkName(ProcessDef process ) {
-
-        def other = processDefs[process.name]
-        if( other ) {
-            def message = """\
-                Process `$process.name` is defined in multiple library files:
-                  ${other.scriptPath.toUriString()}
-                  ${process.scriptPath.toUriString()}
-                """ .stripIndent()
-            throw new ProcessDuplicateException(message)
+    protected void checkUniqueNames(BaseScript includeScript) {
+        def meta = getMeta(includeScript)
+        for( String name : meta.getAllDefinedNames() ) {
+            def found = nameExists(name)
+            if( found ) {
+              def msg = """\
+                Duplicate definition `$name` in the following scripts:
+                - $meta.scriptPath
+                - $found.scriptPath
+                """.stripIndent()
+              throw new DuplicateScriptDefinitionException(msg)
+            }
         }
     }
 
-
-    Object invoke(Object channel, String methodName, Object[] args, Throwable MISSING_METHOD=null) {
-        def proc = processDefs.get(methodName)
-        if( !proc ) {
-            throw MISSING_METHOD ?: new MissingMethodException(methodName, channel.class, args)
+    protected ScriptMeta nameExists(String name) {
+        for( BaseScript script : allIncludes ) {
+            final other = getMeta(script)
+            if( other.containsDef(name) ) {
+                return other
+            }
         }
-        def aa = new Object[args.size()+1]
-        aa[0] = channel
-        for( int i=0; i<args.size(); i++ )
-            aa[i+1] = args[i]
-
-        proc.call(aa)
+        return null
     }
-
-    boolean contains(String name) {
-        methodDefs.containsKey(name) || processDefs.containsKey(name)
-    }
-
-    Object invoke(String name, Object[] args) {
-        final FunctionDef method = methodDefs[name]
-        if( method )
-            return method.invoke(args)
-
-        def proc = processDefs[name]
-        if( proc )
-            return proc.call(args)
-
-        throw new MissingMethodException(name, method.getOwner().getClass())
-    }
-
 }

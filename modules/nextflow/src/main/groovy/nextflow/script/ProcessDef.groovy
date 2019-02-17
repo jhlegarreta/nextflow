@@ -16,7 +16,6 @@
 
 package nextflow.script
 
-import java.nio.file.Path
 
 import groovy.transform.CompileStatic
 import groovyx.gpars.dataflow.DataflowQueue
@@ -39,8 +38,6 @@ class ProcessDef implements Cloneable {
 
     private Session session
 
-    private Path scriptPath
-
     private Object output
 
     ProcessDef(BaseScript owner, String name, ProcessConfig config, TaskBody body) {
@@ -49,7 +46,6 @@ class ProcessDef implements Cloneable {
         this.taskBody = body
         this.processConfig = config
         this.session = owner.binding.session
-        this.scriptPath = owner.binding.scriptPath
     }
 
     ProcessDef clone() {
@@ -66,8 +62,6 @@ class ProcessDef implements Cloneable {
     BaseScript getOwner() { owner }
 
     String getName() { name }
-
-    Path getScriptPath() { scriptPath }
 
     def getOutput() { output }
 

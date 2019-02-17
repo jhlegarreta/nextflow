@@ -162,6 +162,8 @@ class ScriptParser {
         session.script = script
         session.scriptClass = script.class
         session.scriptClassName = clazzName
+        if( scriptPath )
+            ScriptMeta.get(script).scriptPath = scriptPath
         return this
     }
 
@@ -197,10 +199,8 @@ class ScriptParser {
     ScriptParser runScript() {
         assert script
         setupContext()
-        script.setBinding(binding)
         result = script.run()
         return this
     }
-
 
 }

@@ -37,6 +37,8 @@ abstract class BaseScript extends Script {
 
     private boolean module
 
+    private ScriptIncludes includes
+
     @Lazy InputStream stdin = { System.in }()
 
     BaseScript() {
@@ -48,6 +50,7 @@ abstract class BaseScript extends Script {
         ScriptMeta.register(this)
     }
 
+    @Override
     ScriptBinding getBinding() {
         (ScriptBinding)super.getBinding()
     }
@@ -78,8 +81,9 @@ abstract class BaseScript extends Script {
     }
 
     private void setup() {
-        session = binding.getSession()
         module = binding.module
+        session = binding.getSession()
+        includes = new ScriptIncludes(this)
         processFactory = session.newProcessFactory(this)
 
         binding.setVariable( 'baseDir', session.baseDir )
@@ -96,7 +100,7 @@ abstract class BaseScript extends Script {
 
         if( module ) {
             def proc = processFactory.defineProcess(name, body)
-            meta().setProcessDef(proc)
+            meta().addProcessDef(proc)
         }
         else {
             // legacy process definition an execution
@@ -106,11 +110,11 @@ abstract class BaseScript extends Script {
     }
 
     protected workflow(TaskBody body) {
-        meta().setWorkflowDef(new WorkflowDef(body))
+        meta().addWorkflowDef(new WorkflowDef(body))
     }
 
     protected workflow(TaskBody body, String name, List<String> declaredInputs = Collections.emptyList()) {
-        meta().setWorkflowDef(new WorkflowDef(body,name,declaredInputs))
+        meta().addWorkflowDef(new WorkflowDef(body,name,declaredInputs))
     }
 
     protected void require(path) {
@@ -119,8 +123,7 @@ abstract class BaseScript extends Script {
 
     protected void require(Map opts, path) {
         final params = opts.params ? (Map)opts.params : null
-        // TODO
-        throw new UnsupportedOperationException("TODO")
+        includes.load(path, params)
     }
 
     @Override
