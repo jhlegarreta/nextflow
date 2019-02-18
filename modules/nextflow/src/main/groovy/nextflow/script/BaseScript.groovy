@@ -117,7 +117,7 @@ abstract class BaseScript extends Script {
         workflow.invoke(EMPTY_ARGS, binding)
     }
 
-    protected workflow(TaskBody body, String name, List<String> declaredInputs = Collections.emptyList()) {
+    protected workflow(TaskBody body, String name, List<String> declaredInputs) {
         meta.addDefinition(new WorkflowDef(body,name,declaredInputs))
     }
 

@@ -162,12 +162,13 @@ class NextflowDSLImpl implements ASTTransformation {
             log.trace "Convert 'workflow' ${methodCall.arguments}"
 
             assert methodCall.arguments instanceof ArgumentListExpression
-            def list = (methodCall.arguments as ArgumentListExpression).getExpressions()
+            def args = (ArgumentListExpression)methodCall.arguments
+            def len = args.size()
 
             // anonymous workflow definition
-            if( list.size() == 1 && list[0] instanceof ClosureExpression ) {
+            if( len == 1 && args[0] instanceof ClosureExpression ) {
                 def newArgs = new ArgumentListExpression()
-                def body = (ClosureExpression)list[0]
+                def body = (ClosureExpression)args[0]
                 newArgs.addExpression( makeWorkflowBodyWrapper(body) )
                 methodCall.setArguments( newArgs )
                 return 
@@ -175,13 +176,13 @@ class NextflowDSLImpl implements ASTTransformation {
 
             // extract the first argument which has to be a method-call expression
             // the name of this method represent the *workflow* name
-            if( list.size() != 1 || !list[0].class.isAssignableFrom(MethodCallExpression) ) {
+            if( len != 1 || !args[0].class.isAssignableFrom(MethodCallExpression) ) {
                 log.debug "Missing name in workflow definition at line: ${methodCall.lineNumber}"
                 unit.addError( new SyntaxException("Workflow definition syntax error -- A string identifier must be provided after the `workflow` keyword", methodCall.lineNumber, methodCall.columnNumber+8))
                 return
             }
 
-            final nested = list[0] as MethodCallExpression
+            final nested = args[0] as MethodCallExpression
             final name = nested.getMethodAsString()
             // check the process name is not defined yet
             if( isNameDuplicate(name) ) {
@@ -193,7 +194,8 @@ class NextflowDSLImpl implements ASTTransformation {
             // the nested method arguments are the arguments to be passed
             // to the process definition, plus adding the process *name*
             // as an extra item in the arguments list
-            def args = (ArgumentListExpression)nested.getArguments()
+            args = (ArgumentListExpression)nested.getArguments()
+            len = args.size()
             log.trace "Workflow name: $name with args: $args"
 
             // make sure to add the 'name' after the map item
@@ -201,30 +203,15 @@ class NextflowDSLImpl implements ASTTransformation {
             def newArgs = new ArgumentListExpression()
 
             // add the workflow body def
-            if(!args || !(args[args.size()-1] instanceof ClosureExpression)) {
+            if( len == 0 || !(args[len-1] instanceof ClosureExpression)) {
                 syntaxError(methodCall, "Invalid workflow definition -- Missing definition block")
                 return
             }
-            def body = (ClosureExpression)args[args.size()-1]
+
+            final body = (ClosureExpression)args[len-1]
             newArgs.addExpression( makeWorkflowBodyWrapper(body) )
-
-            // add the workflow name
             newArgs.addExpression( GeneralUtils.constX(name) )
-
-            // parse and add workflow input defs
-            def inputs = new ArrayList<Expression>()
-            for( int i=0; i<args.size()-1; i++) {
-                def expr = args.getExpression(i)
-                if( expr instanceof VariableExpression ) {
-                    def varX = expr as VariableExpression
-                    inputs.add(GeneralUtils.constX(varX.name))
-                }
-                else {
-                    throw new IllegalArgumentException("Unexpected input expression: $expr")
-                }
-            }
-            if( inputs.size() )
-                newArgs.addExpression(new ListExpression(inputs))
+            newArgs.addExpression( makeArgsList(args) )
 
             // set the new list as the new arguments
             methodCall.setArguments( newArgs )
@@ -244,6 +231,21 @@ class NextflowDSLImpl implements ASTTransformation {
             unit.addError( new SyntaxException(message,line,coln))
         }
 
+        protected ListExpression makeArgsList(ArgumentListExpression args) {
+            def result = new ArrayList<Expression>()
+            for( int i=0; i<args.size()-1; i++) {
+                def expr = args.getExpression(i)
+                if( expr instanceof VariableExpression ) {
+                    def varX = expr as VariableExpression
+                    result.add(GeneralUtils.constX(varX.name))
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected input expression: $expr")
+                }
+            }
+
+            return new ListExpression(result)
+        }
 
         /**
          * Transform a DSL `process` definition into a proper method invocation

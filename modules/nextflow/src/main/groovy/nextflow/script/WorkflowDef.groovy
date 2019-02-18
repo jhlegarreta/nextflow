@@ -67,7 +67,6 @@ class WorkflowDef implements InvokableDef, Cloneable {
 
 
     protected void collectInputs(Binding context, Object[] args) {
-        println "args=$args  inputs=$declaredInputs"
         if( args.size() != declaredInputs.size() )
             throw new IllegalArgumentException("Workflow `$name` declares ${declaredInputs.size()} input channels but ${args.size()} were specified")
 
