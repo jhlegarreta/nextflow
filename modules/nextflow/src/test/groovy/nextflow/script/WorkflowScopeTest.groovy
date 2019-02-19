@@ -6,14 +6,14 @@ import spock.lang.Specification
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class WorkflowStackTest extends Specification {
+class WorkflowScopeTest extends Specification {
 
     def 'should verify push and pop semantics' () {
 
         given:
         def wf1 = Mock(WorkflowDef)
         def wf2 = Mock(WorkflowDef)
-        def stack = new WorkflowStack()
+        def stack = new WorkflowScope()
 
         expect:
         stack.current() == null
@@ -39,6 +39,7 @@ class WorkflowStackTest extends Specification {
         then:
         result == wf2
         stack.current() == wf1
+        stack.last() == wf2
         stack.size()==1
         stack
 
@@ -47,6 +48,7 @@ class WorkflowStackTest extends Specification {
         then:
         result == wf1
         stack.current() == null
+        stack.last() == wf1
         stack.size()==0
         !stack
 

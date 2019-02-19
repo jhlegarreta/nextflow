@@ -6,13 +6,17 @@ import groovy.transform.CompileStatic
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class WorkflowStack {
+class WorkflowScope {
 
-    static WorkflowStack INSTANCE = new WorkflowStack()
+    static WorkflowScope INSTANCE = new WorkflowScope()
 
-    static WorkflowStack get() { INSTANCE }
+    static WorkflowScope get() { INSTANCE }
 
-    List<WorkflowDef> stack = new ArrayList<>()
+    private List<WorkflowDef> stack = new ArrayList<>()
+
+    private WorkflowDef last
+
+    WorkflowDef last() { last }
 
     WorkflowDef current() {
         stack ? stack.get(0) : null
@@ -23,7 +27,7 @@ class WorkflowStack {
     }
 
     WorkflowDef pop() {
-        stack.pop()
+        last = stack.pop()
     }
 
     int size() {

@@ -20,9 +20,11 @@ import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 import groovyx.gpars.agent.Agent
+import groovyx.gpars.dataflow.DataflowBroadcast
 import groovyx.gpars.dataflow.DataflowChannel
 import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowReadChannel
@@ -61,44 +63,130 @@ import static nextflow.util.CheckHelper.checkParams
  */
 
 @Slf4j
-class DataflowEx {
+class DataflowExt {
 
     private static Session getSession() { Global.getSession() as Session }
 
-    final static Set<String> methodNames
+    final private static Set<String> methodNames
 
-    final static MetaClass meta = DataflowEx.getMetaClass()
+    final static private List<String> SPECIAL_NAMES = ["choice","merge","separate"]
+
+    final static MetaClass meta = DataflowExt.getMetaClass()
 
     static {
-        methodNames = new HashSet<>(30)
-        def methods = DataflowEx.class.getDeclaredMethods()
+        methodNames = getMethods0()
+        log.trace "Dataflow extension methods: ${methodNames.sort().join(',')}"
+    }
+
+    @CompileStatic
+    static private Set<String> getMethods0() {
+        def result = new HashSet<>(30)
+        def methods = DataflowExt.class.getDeclaredMethods()
         for( def handle : methods ) {
             def params=handle.getParameterTypes()
             if( Modifier.isPublic(handle.getModifiers()) && !Modifier.isStatic(handle.getModifiers()) && params.length>0 && isReadChannel(params[0]) )
-                methodNames.add(handle.name)
+                result.add(handle.name)
         }
-        log.debug "Dataflow extension methods: ${methodNames.sort().join(',')}"
+        return result
     }
 
-    static isReadChannel(Class clazz) {
+    @CompileStatic
+    static boolean isReadChannel(Class clazz) {
         DataflowReadChannel.class.isAssignableFrom(clazz)
     }
 
+    static boolean isBroadcastChannel(Class clazz) {
+        DataflowBroadcast.class.isAssignableFrom(clazz)
+    }
+
+    @CompileStatic
     boolean isExtension(Object instance, String name) {
         if( instance != null && !isReadChannel(instance.class) )
             return false
-        return DataflowEx.methodNames.contains(name)
+        return DataflowExt.methodNames.contains(name)
     }
 
-    Object invokeMethod(Object theChannel, String methodName, Object[] args) {
-        Object[] params = new Object[args.length+1];
-        params[0] = theChannel;
-        for( int i=0; i<args.length; i++ ) {
-            params[i+1] = args[i];
+    @CompileStatic
+    Object invokeMethod(Object channel, String methodName, Object[] args) {
+        DataflowReadChannel target
+        if( channel instanceof DataflowBroadcast )
+            target = ChannelScope.get(channel)
+
+        else if( channel instanceof DataflowQueue )
+            target = ChannelScope.get(channel)
+
+        else if( channel instanceof DataflowReadChannel )
+            target = (DataflowReadChannel)channel
+
+        else
+            throw new IllegalArgumentException("Invalid dataflow ta")
+
+        return invokeMethod0(target,methodName,args)
+    }
+
+    @CompileStatic
+    private invokeMethod0(DataflowReadChannel channel, String methodName, Object[] args) {
+        // make it possible to invoke some dataflow operator specifying an open array and ending with a closure argument
+        // For example:
+        //  DataflowReadChannel# separate(final List<DataflowWriteChannel<?>> outputs, final Closure<List<Object>> code)
+        // can be invoked as:
+        //  queue.separate( x, y, z ) { ... }
+        if( checkOpenArrayDataflowMethod(SPECIAL_NAMES, methodName, args) ) {
+            Object[] newArgs = new Object[3]
+            newArgs[0] = channel
+            newArgs[1] = toListOfChannel(args)
+            newArgs[2] = args[args.length-1]
+            return meta.invokeMethod(this, methodName, newArgs);
+        }
+        else {
+            // create the invocation parameters array
+            Object[] params = new Object[args.length+1];
+            params[0] = channel;
+            for( int i=0; i<args.length; i++ ) {
+                params[i+1] = args[i];
+            }
+
+            return meta.invokeMethod(this, methodName, params);
+        }
+    }
+
+    /**
+     *  Check the following conditions:
+     *  <li>method name is the requested one
+     *  <li>the target object is a {@link groovyx.gpars.dataflow.DataflowReadChannel}
+     *  <li>the all items in the last arguments array are {@link groovyx.gpars.dataflow.DataflowWriteChannel}
+     *  <li>the last item in the arguments array is a {@link Closure}
+     */
+    @CompileStatic
+    private static boolean checkOpenArrayDataflowMethod(List<String> validNames, String methodName, Object[] args) {
+        if( !validNames.contains(methodName) )
+            return false
+        if( args == null || args.length<2 )
+            return false
+        if( !(args[args.length-1] instanceof Closure) )
+            return false
+        for( int i=0; i<args.length-1; i++ ) {
+            if( !(args[i] instanceof DataflowWriteChannel ))
+                return false
         }
 
-        return meta.invokeMethod(this, methodName, params);
+        return true
     }
+
+
+    /**
+     * Given an array of arguments copy the first n-1 to a list of {@link groovyx.gpars.dataflow.DataflowWriteChannel}
+     */
+    @CompileStatic
+    private static List<DataflowWriteChannel> toListOfChannel( Object[] args )  {
+        List<DataflowWriteChannel> result = new ArrayList<>(args.length-1);
+        for( int i=0; i<args.length-1; i++ ) {
+            result.add(i, (DataflowWriteChannel)args[i]);
+        }
+        return result;
+    }
+
+
 
     /**
      * INTERNAL ONLY API
@@ -217,7 +305,7 @@ class DataflowEx {
 
             @Override
             boolean onException(final DataflowProcessor processor, final Throwable e) {
-                DataflowEx.log.error("@unknown", e)
+                DataflowExt.log.error("@unknown", e)
                 session.abort(e)
                 return true;
             }
@@ -579,7 +667,7 @@ class DataflowEx {
             }
 
             boolean onException(final DataflowProcessor processor, final Throwable e) {
-                DataflowEx.log.error("@unknown", e)
+                DataflowExt.log.error("@unknown", e)
                 session.abort(e)
                 return true;
             }
@@ -1029,7 +1117,7 @@ class DataflowEx {
 
             @Override
             boolean onException(final DataflowProcessor processor, final Throwable e) {
-                DataflowEx.log.error("@unknown", e)
+                DataflowExt.log.error("@unknown", e)
                 session.abort(e)
                 return true;
             }
@@ -1085,7 +1173,7 @@ class DataflowEx {
                 }
 
                 boolean onException(final DataflowProcessor processor, final Throwable e) {
-                    DataflowEx.log.error("@unknown", e)
+                    DataflowExt.log.error("@unknown", e)
                     session.abort(e)
                     return true;
                 }
@@ -1203,7 +1291,7 @@ class DataflowEx {
 
             @Override
             boolean onException(DataflowProcessor processor, Throwable e) {
-                DataflowEx.log.error("@unknown", e)
+                DataflowExt.log.error("@unknown", e)
                 session.abort(e)
                 return true
             }
@@ -1402,13 +1490,13 @@ class DataflowEx {
     }
 
     @Deprecated
-    void separate(final DataflowReadChannel source, final List<DataflowWriteChannel<?>> outputs) {
+    void separate(final DataflowReadChannel source, final List<DataflowWriteChannel> outputs) {
         new SeparateOp(source, outputs).apply()
         NodeMarker.addOperatorNode('separate', source, outputs)
     }
 
     @Deprecated
-    void separate(final DataflowReadChannel source, final List<DataflowWriteChannel<?>> outputs, final Closure<List<Object>> code) {
+    void separate(final DataflowReadChannel source, final List<DataflowWriteChannel> outputs, final Closure<List> code) {
         new SeparateOp(source, outputs, code).apply()
         NodeMarker.addOperatorNode('separate', source, outputs)
     }

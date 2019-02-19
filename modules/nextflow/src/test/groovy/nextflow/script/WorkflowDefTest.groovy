@@ -120,6 +120,4 @@ class WorkflowDefTest extends Specification {
 
     }
 
-
-
 }

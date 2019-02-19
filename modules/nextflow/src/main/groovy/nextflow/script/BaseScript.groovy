@@ -140,7 +140,7 @@ abstract class BaseScript extends Script {
         if( invokable instanceof FunctionDef )
             return invokable.invoke(args)
 
-        final current = WorkflowStack.get().current()
+        final current = WorkflowScope.get().current()
         if( invokable instanceof WorkflowDef ) {
             // case 2.b - workflow nested invocation
             if( current )

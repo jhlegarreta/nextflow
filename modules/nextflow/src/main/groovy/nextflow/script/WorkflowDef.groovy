@@ -39,8 +39,6 @@ class WorkflowDef implements InvokableDef, Cloneable {
         return copy
     }
 
-    Binding getContext() { context }
-
     String getName() { name }
 
     def getOutput() { output }
@@ -53,6 +51,7 @@ class WorkflowDef implements InvokableDef, Cloneable {
 
     @PackageScope List<String> getDeclaredVariables() { new ArrayList<String>(variableNames) }
 
+    @PackageScope Binding getContext() { context }
 
     private Set<String> getVarNames0() {
         def variableNames = body.getValNames()
@@ -107,7 +106,7 @@ class WorkflowDef implements InvokableDef, Cloneable {
         // use this instance an workflow template, therefore clone it
         final workflow = this.clone()
         // workflow execution
-        WorkflowStack.get().push(workflow)
+        WorkflowScope.get().push(workflow)
         try {
             final result = workflow.run0(args)
             // register this workflow invocation in the current scope
@@ -117,7 +116,7 @@ class WorkflowDef implements InvokableDef, Cloneable {
             return result
         }
         finally {
-            WorkflowStack.get().pop()
+            WorkflowScope.get().pop()
         }
 
     }
