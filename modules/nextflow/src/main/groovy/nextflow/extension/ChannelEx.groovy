@@ -16,6 +16,7 @@
 
 package nextflow.extension
 
+import groovyx.gpars.agent.Agent
 import groovyx.gpars.dataflow.DataflowQueue
 import nextflow.Channel
 import nextflow.dag.NodeMarker
@@ -38,5 +39,23 @@ class ChannelEx {
         target.bind(Channel.STOP)
         NodeMarker.addSourceNode('channel',target)
         return target
+    }
+
+
+    /**
+     * INTERNAL ONLY API
+     * <p>
+     * Add the {@code update} method to an {@code Agent} so that it call implicitly
+     * the {@code Agent#updateValue} method
+     *
+     */
+    static void update(Agent self, Closure message ) {
+        assert message != null
+
+        self.send {
+            message.call(it)
+            updateValue(it)
+        }
+
     }
 }

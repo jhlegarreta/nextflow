@@ -20,6 +20,7 @@ import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 import nextflow.Session
 import nextflow.exception.IllegalInvocationException
+import nextflow.extension.ChannelScope
 import nextflow.processor.TaskProcessor
 /**
  * Any user defined script will extends this class, it provides the base execution context
@@ -114,7 +115,10 @@ abstract class BaseScript extends Script {
             throw new IllegalArgumentException("Anonymous workflow declaration is not allowed in module script")
         def workflow = new WorkflowDef(body)
         meta.addDefinition(workflow)
-        workflow.invoke(EMPTY_ARGS, binding)
+        def result = workflow.invoke(EMPTY_ARGS, binding)
+        // finally bridge dataflow queues
+        ChannelScope.broadcast()
+        return result
     }
 
     protected workflow(TaskBody body, String name, List<String> declaredInputs) {

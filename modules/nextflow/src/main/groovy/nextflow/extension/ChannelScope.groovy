@@ -22,7 +22,7 @@ class ChannelScope {
             return new DataflowVariable()
 
         if( WorkflowScope.get().current() == null )
-            return new DataflowVariable()
+            return new DataflowQueue()
 
         else
             return new DataflowBroadcast()
@@ -49,7 +49,7 @@ class ChannelScope {
         channel.createReadChannel()
     }
 
-    static void turnOn() {
+    static void broadcast() {
         // connect all dataflow queue variables to associated broadcast channel 
         for( DataflowQueue queue : bridges.keySet() ) {
             def broadcast = bridges.get(queue)

@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
-import groovyx.gpars.agent.Agent
 import groovyx.gpars.dataflow.DataflowBroadcast
 import groovyx.gpars.dataflow.DataflowChannel
 import groovyx.gpars.dataflow.DataflowQueue
@@ -95,15 +94,17 @@ class DataflowExt {
         DataflowReadChannel.class.isAssignableFrom(clazz)
     }
 
+    @CompileStatic
     static boolean isBroadcastChannel(Class clazz) {
         DataflowBroadcast.class.isAssignableFrom(clazz)
     }
 
     @CompileStatic
     boolean isExtension(Object instance, String name) {
-        if( instance != null && !isReadChannel(instance.class) )
-            return false
-        return DataflowExt.methodNames.contains(name)
+        if( instance != null && (isReadChannel(instance.class) || isBroadcastChannel(instance.class))) {
+            return DataflowExt.methodNames.contains(name)
+        }
+        return false
     }
 
     @CompileStatic
@@ -186,24 +187,6 @@ class DataflowExt {
         return result;
     }
 
-
-
-    /**
-     * INTERNAL ONLY API
-     * <p>
-     * Add the {@code update} method to an {@code Agent} so that it call implicitly
-     * the {@code Agent#updateValue} method
-     *
-     */
-    static void update( Agent self, Closure message ) {
-        assert message != null
-
-        self.send {
-            message.call(it)
-            updateValue(it)
-        }
-
-    }
 
     /**
      * Subscribe *onNext* event
