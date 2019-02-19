@@ -84,7 +84,7 @@ class DumpOp {
             target.bind(it)
         }
 
-        events.onComplete = { DataflowExtensions.close(target) }
+        events.onComplete = { DataflowExt.close0(target) }
 
         DataflowHelper.subscribeImpl(source, events)
         return target

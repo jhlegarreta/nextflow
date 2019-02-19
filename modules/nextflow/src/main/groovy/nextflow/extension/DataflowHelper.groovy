@@ -90,7 +90,7 @@ class DataflowHelper {
     static DEF_ERROR_LISTENER = new DataflowEventAdapter() {
         @Override
         public boolean onException(final DataflowProcessor processor, final Throwable e) {
-            DataflowExtensions.log.error("@unknown", e)
+            DataflowExt.log.error("@unknown", e)
             session.abort(e)
             return true;
         }
@@ -224,7 +224,7 @@ class DataflowHelper {
                     events.onComplete.call(processor)
                 }
                 catch( Exception e ) {
-                    DataflowExtensions.log.error("@unknown", e)
+                    DataflowExt.log.error("@unknown", e)
                     session.abort(e)
                 }
             }

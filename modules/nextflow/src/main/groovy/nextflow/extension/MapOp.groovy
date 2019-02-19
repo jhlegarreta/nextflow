@@ -26,7 +26,7 @@ import static nextflow.extension.DataflowHelper.newChannelBy
 
 
 /**
- * Implements {@link DataflowExtensions#map(groovyx.gpars.dataflow.DataflowReadChannel, groovy.lang.Closure)} operator
+ * Implements {@link DataflowExt#map(groovyx.gpars.dataflow.DataflowReadChannel, groovy.lang.Closure)} operator
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

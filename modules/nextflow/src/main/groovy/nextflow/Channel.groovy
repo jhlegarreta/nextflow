@@ -60,11 +60,13 @@ class Channel  {
     // only for testing purpose !
     private static CompletableFuture fromPath0Future
 
+
     /**
      * Create an new channel
      *
      * @return The channel instance
      */
+    @Deprecated
     static <T> DataflowChannel<T> create() {
         new DataflowQueue<T>()
     }

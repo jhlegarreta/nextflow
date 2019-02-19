@@ -24,7 +24,7 @@ import groovyx.gpars.dataflow.DataflowVariable
 import nextflow.Channel
 import nextflow.util.ArrayBag
 /**
- * Implements {@link DataflowExtensions#collect(groovyx.gpars.dataflow.DataflowReadChannel)}  operator
+ * Implements {@link DataflowExt#collect(groovyx.gpars.dataflow.DataflowReadChannel)}  operator
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

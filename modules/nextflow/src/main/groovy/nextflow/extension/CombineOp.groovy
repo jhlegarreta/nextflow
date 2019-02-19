@@ -32,7 +32,7 @@ import static nextflow.extension.DataflowHelper.addToList
 import static nextflow.extension.DataflowHelper.split
 
 /**
- * Implements the {@link DataflowExtensions#spread(groovyx.gpars.dataflow.DataflowReadChannel, java.lang.Object)} operator
+ * Implements the {@link DataflowExt#spread(groovyx.gpars.dataflow.DataflowReadChannel, java.lang.Object)} operator
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

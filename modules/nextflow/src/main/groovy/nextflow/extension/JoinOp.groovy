@@ -29,7 +29,7 @@ import nextflow.util.CheckHelper
 import static nextflow.extension.DataflowHelper.addToList
 
 /**
- * Implements {@link DataflowExtensions#join} operator logic
+ * Implements {@link DataflowExt#join} operator logic
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

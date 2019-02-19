@@ -26,7 +26,7 @@ import nextflow.Channel
 import nextflow.util.CheckHelper
 
 /**
- * Implements {@link DataflowExtensions#phase} operator logic
+ * Implements {@link DataflowExt#phase} operator logic
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
@@ -41,7 +41,7 @@ class PhaseOp {
 
     private DataflowReadChannel target
 
-    private Closure mapper = DataflowExtensions.DEFAULT_MAPPING_CLOSURE
+    private Closure mapper = DataflowExt.DEFAULT_MAPPING_CLOSURE
 
     PhaseOp( DataflowReadChannel source, DataflowReadChannel target ) {
         this.source = source
@@ -56,7 +56,7 @@ class PhaseOp {
     }
 
     PhaseOp setMapper( Closure mapper ) {
-        this.mapper = mapper ?: DataflowExtensions.DEFAULT_MAPPING_CLOSURE
+        this.mapper = mapper ?: DataflowExt.DEFAULT_MAPPING_CLOSURE
         return this
     }
 

@@ -28,7 +28,7 @@ import static nextflow.extension.DataflowHelper.newOperator
 
 
 /**
- * Implements the {@link DataflowExtensions#tap} operator
+ * Implements the {@link DataflowExt#tap} operator
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
