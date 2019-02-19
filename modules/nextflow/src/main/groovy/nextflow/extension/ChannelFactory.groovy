@@ -6,18 +6,22 @@ import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowReadChannel
 import groovyx.gpars.dataflow.DataflowVariable
 import groovyx.gpars.dataflow.DataflowWriteChannel
+import groovyx.gpars.dataflow.expression.DataflowExpression
 import nextflow.script.WorkflowScope
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class ChannelScope {
+class ChannelFactory {
 
     static Map<DataflowQueue, DataflowBroadcast> bridges = new HashMap<>(10)
 
-    static DataflowWriteChannel create(boolean value) {
+    static DataflowWriteChannel createBy(DataflowReadChannel channel) {
+        create( channel instanceof DataflowExpression )
+    }
+
+    static DataflowWriteChannel create(boolean value=false) {
         if( value )
             return new DataflowVariable()
 
@@ -26,6 +30,19 @@ class ChannelScope {
 
         else
             return new DataflowBroadcast()
+    }
+
+    static DataflowReadChannel get(channel) {
+        if (channel instanceof DataflowExpression)
+            return channel
+
+        if (channel instanceof DataflowQueue)
+            return get(channel)
+
+        if (channel instanceof DataflowBroadcast)
+            return get(channel)
+
+        throw new IllegalArgumentException("Illegal channel source type: ${channel?.getClass()?.getName()}")
     }
 
     static DataflowReadChannel get(DataflowQueue queue) {

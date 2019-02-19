@@ -16,16 +16,14 @@
 
 package nextflow.extension
 
-import org.codehaus.groovy.runtime.InvokerHelper
-import static nextflow.util.CheckHelper.checkParams
-import static nextflow.extension.DataflowHelper.newChannelBy
-
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import groovyx.gpars.dataflow.DataflowReadChannel
+import groovyx.gpars.dataflow.DataflowWriteChannel
 import nextflow.Global
 import nextflow.Session
-
+import org.codehaus.groovy.runtime.InvokerHelper
+import static nextflow.util.CheckHelper.checkParams
 /**
  * Implements channel `dump` operator. It prints the content of a channel
  * only when the `-dump-channels` command line option is specified otherwise
@@ -47,12 +45,17 @@ class DumpOp {
 
     protected String tag
 
-    DumpOp(DataflowReadChannel source, Map opts, Closure<String> renderer = null) {
+    DumpOp(Map opts, Closure<String> renderer) {
         checkParams('dump', opts, PARAMS_DUMP)
         this.source = source
         this.tag = opts.tag
         this.renderer = renderer
         this.dumpNames = (Global.session as Session).getDumpChannels()
+    }
+
+    DumpOp setSource( DataflowWriteChannel source ) {
+        this.source = ChannelFactory.get(source)
+        return this
     }
 
     /** Only for testing -- do not use */
@@ -69,13 +72,15 @@ class DumpOp {
             .find { matcher ==~ /$it/}
     }
 
-    DataflowReadChannel apply() {
+    DataflowWriteChannel apply() {
 
         if( !isEnabled() ) {
-            return source
+            if( source instanceof DataflowWriteChannel )
+                return (DataflowWriteChannel)source
+            throw new IllegalArgumentException("Illegal dump operator source channel")
         }
 
-        final target = newChannelBy(source)
+        final target = ChannelFactory.createBy(source)
         final events = new HashMap(2)
         events.onNext = {
             def marker = 'DUMP'

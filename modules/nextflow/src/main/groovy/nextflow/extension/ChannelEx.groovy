@@ -18,14 +18,31 @@ package nextflow.extension
 
 import groovyx.gpars.agent.Agent
 import groovyx.gpars.dataflow.DataflowQueue
+import groovyx.gpars.dataflow.DataflowWriteChannel
 import nextflow.Channel
 import nextflow.dag.NodeMarker
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 class ChannelEx {
+
+    static DataflowWriteChannel dump(final DataflowWriteChannel source, Closure closure = null) {
+        dump(source, Collections.emptyMap(), closure)
+    }
+
+    static DataflowWriteChannel dump(final DataflowWriteChannel source, Map opts, Closure closure = null) {
+        def op = new DumpOp(opts, closure)
+        if( op.isEnabled() ) {
+            op.setSource(source)
+            def target = op.apply()
+            NodeMarker.addOperatorNode('dump', source, target)
+            return target
+        }
+        else {
+            return source
+        }
+    }
 
     /**
      * Creates a channel emitting the entries in the collection to which is applied
@@ -41,6 +58,15 @@ class ChannelEx {
         return target
     }
 
+    /**
+     * Close a dataflow queue channel binding a {@link Channel#STOP} item
+     *
+     * @param source The source dataflow channel to be closed.
+     */
+    @Deprecated
+    static DataflowWriteChannel close(DataflowWriteChannel source) {
+        return DataflowExt.close0(source)
+    }
 
     /**
      * INTERNAL ONLY API

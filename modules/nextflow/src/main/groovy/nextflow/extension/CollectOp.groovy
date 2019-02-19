@@ -73,8 +73,6 @@ class CollectOp {
     }
 
     private List normalise(List list) {
-
-
         if( !sort )
             return list
 

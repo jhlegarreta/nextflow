@@ -27,8 +27,8 @@ import groovyx.gpars.dataflow.DataflowVariable
 import groovyx.gpars.dataflow.expression.DataflowExpression
 import nextflow.Nextflow
 import nextflow.exception.ProcessException
+import nextflow.extension.ChannelFactory
 import nextflow.extension.ToListOp
-
 /**
  * Base class for input/output parameters
  *
@@ -185,12 +185,13 @@ abstract class BaseInParam extends BaseParam implements InParam {
     protected DataflowReadChannel inputValToChannel( value ) {
         checkFromNotNull(value)
 
-        if ( value instanceof DataflowBroadcast )  {
-            return value.createReadChannel()
+        if( this instanceof DefaultInParam ) {
+            assert value instanceof DataflowQueue
+            return value
         }
 
-        if( value instanceof DataflowReadChannel ) {
-            return value
+        if ( value instanceof DataflowReadChannel || value instanceof DataflowBroadcast )  {
+            return ChannelFactory.get(value)
         }
 
         // wrap any collections with a DataflowQueue
